@@ -149,7 +149,7 @@ if st.sidebar.button("Launch Adversary Campaign"):
 
     st.cache_data.clear()
 
-tab1, tab2, tab3, tab4 = st.tabs(["Alerts", "Hunt Explorer", "AI Triage", "ATT&CK Graph"])
+tab1, tab2, tab3, tab4, tab5 = st.tabs(["Alerts", "Hunt Explorer", "AI Triage", "ATT&CK Graph", "Tuning"])
 
 with tab1:
     st.subheader("Detections / Alerts")
@@ -330,6 +330,63 @@ with tab4:
 
             st.divider()
             st.caption("Tip: add more mappings in ALERTTYPE_TO_ATTACK and SCENARIO_TO_ATTACK as you expand detections.")
+
+with tab5:
+    st.subheader("Detection Tuning Dashboard")
+    st.caption("Quick view of signal-to-noise: confidence distribution, suppression rate, and top noisy alert types.")
+
+    alerts_df = load_alerts()
+    if alerts_df.empty:
+        st.warning("No alerts yet. Generate + Detect or Launch Adversary Campaign.")
+    else:
+        # Ensure fields exist
+        if "Confidence" not in alerts_df.columns:
+            alerts_df["Confidence"] = 50
+        if "Suppressed" not in alerts_df.columns:
+            alerts_df["Suppressed"] = False
+        if "AlertType" not in alerts_df.columns:
+            alerts_df["AlertType"] = "Unknown"
+        if "Severity" not in alerts_df.columns:
+            alerts_df["Severity"] = "Unknown"
+
+        total = len(alerts_df)
+        suppressed = int(alerts_df["Suppressed"].sum()) if alerts_df["Suppressed"].dtype != object else int((alerts_df["Suppressed"] == True).sum())
+        suppression_rate = (suppressed / total) * 100 if total else 0
+
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Total Alerts", total)
+        c2.metric("Suppressed Alerts", suppressed)
+        c3.metric("Suppression Rate", f"{suppression_rate:.1f}%")
+
+        st.divider()
+
+        st.subheader("Confidence Distribution")
+        st.bar_chart(alerts_df["Confidence"].value_counts().sort_index())
+
+        st.divider()
+
+        st.subheader("Top Noisy Alert Types")
+        by_type = alerts_df.groupby("AlertType").size().sort_values(ascending=False).reset_index(name="Count")
+        st.dataframe(by_type, use_container_width=True)
+
+        st.divider()
+
+        st.subheader("Suppression Reasons (if any)")
+        if "SuppressionReason" in alerts_df.columns and alerts_df["SuppressionReason"].notna().any():
+            reasons = alerts_df[alerts_df["Suppressed"] == True]["SuppressionReason"].value_counts().reset_index()
+            reasons.columns = ["Reason", "Count"]
+            st.dataframe(reasons, use_container_width=True)
+        else:
+            st.info("No suppressed alerts (or no suppression reasons recorded).")
+
+        st.divider()
+
+        st.subheader("Quick Tuning Notes")
+        st.markdown(
+            "- If a single AlertType dominates, tune thresholds or add allowlist rules.\n"
+            "- If confidence is mostly low, enrich detections with stronger signals.\n"
+            "- Suppression should be targeted—avoid suppressing broad users/devices unless verified benign."
+        )
 
 col1, col2 = st.columns([1, 2])
 
