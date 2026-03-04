@@ -9,6 +9,35 @@ if str(REPO_ROOT) not in sys.path:
 import subprocess
 from datetime import datetime
 import json
+ALLOWLIST_PATH = Path("detections/config/allowlist.json")
+
+def ensure_allowlist():
+    ALLOWLIST_PATH.parent.mkdir(parents=True, exist_ok=True)
+    if not ALLOWLIST_PATH.exists():
+        ALLOWLIST_PATH.write_text(
+            json.dumps({"users": [], "devices": [], "process_names": [], "commandline_contains": []}, indent=2),
+            encoding="utf-8"
+        )
+
+def add_to_allowlist(kind: str, value: str) -> bool:
+    """
+    kind: 'users' or 'devices'
+    """
+    ensure_allowlist()
+    data = json.loads(ALLOWLIST_PATH.read_text(encoding="utf-8"))
+    if kind not in data:
+        data[kind] = []
+
+    value = (value or "").strip()
+    if not value:
+        return False
+
+    if value not in data[kind]:
+        data[kind].append(value)
+        data[kind] = sorted(set(data[kind]))
+
+    ALLOWLIST_PATH.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    return True
 import pandas as pd
 import streamlit as st
 
@@ -302,6 +331,35 @@ with tab3:
 
         st.subheader("SOC Incident Note")
         st.json(note)
+st.divider()
+st.subheader("Tuning Actions (Detection Engineering)")
+
+colA, colB, colC = st.columns([2, 2, 3])
+
+with colA:
+    if st.button("Allowlist User", key="tab3_allowlist_user"):
+        u = alert.get("User")
+        if add_to_allowlist("users", u):
+            st.success(f"Added user to allowlist: {u}")
+            n_alerts, out = run_detections()
+            st.info(f"Re-ran detections. Alerts now: {n_alerts}")
+            st.cache_data.clear()
+        else:
+            st.warning("No User found on this alert to allowlist.")
+
+with colB:
+    if st.button("Allowlist Device", key="tab3_allowlist_device"):
+        d = alert.get("DeviceName")
+        if add_to_allowlist("devices", d):
+            st.success(f"Added device to allowlist: {d}")
+            n_alerts, out = run_detections()
+            st.info(f"Re-ran detections. Alerts now: {n_alerts}")
+            st.cache_data.clear()
+        else:
+            st.warning("No DeviceName found on this alert to allowlist.")
+
+with colC:
+    st.caption("Writes to detections/config/allowlist.json and re-runs detections so future alerts can be suppressed.")
 
 st.divider()
 st.subheader("Tuning Actions (Detection Engineering)")
