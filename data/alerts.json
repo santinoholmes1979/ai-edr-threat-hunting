@@ -1,0 +1,151 @@
+[
+  {
+    "AlertType": "EncodedPowerShell",
+    "Severity": "High",
+    "TimeGenerated": "2026-03-04T01:51:25.388181Z",
+    "DeviceName": "ENG-WKS01",
+    "User": "ryan",
+    "Summary": "PowerShell executed with -enc (encoded command)",
+    "Pivot": {
+      "DeviceName": "ENG-WKS01",
+      "User": "ryan",
+      "Scenario": "powershell_encoded"
+    }
+  },
+  {
+    "AlertType": "PasswordSpray",
+    "Severity": "High",
+    "TimeGenerated": "2026-03-03T20:07:06.388181Z",
+    "DeviceName": "ENG-WKS01",
+    "User": "svc-backup",
+    "Summary": "Multiple failed logons from same SourceIP (12 failures)",
+    "Pivot": {
+      "SourceIP": "162.241.8.159",
+      "DeviceName": "ENG-WKS01"
+    }
+  },
+  {
+    "AlertType": "RunKeyPersistence",
+    "Severity": "High",
+    "TimeGenerated": "2026-03-03T19:00:05.388181Z",
+    "DeviceName": "FIN-WKS02",
+    "User": "ryan",
+    "Summary": "Registry Run key modified (possible persistence)",
+    "Pivot": {
+      "DeviceName": "FIN-WKS02",
+      "User": "ryan"
+    }
+  },
+  {
+    "AlertType": "EncodedPowerShell",
+    "Severity": "High",
+    "TimeGenerated": "2026-03-03T16:45:33.388181Z",
+    "DeviceName": "ENG-WKS01",
+    "User": "ryan",
+    "Summary": "PowerShell executed with -enc (encoded command)",
+    "Pivot": {
+      "DeviceName": "ENG-WKS01",
+      "User": "ryan",
+      "Scenario": "powershell_encoded"
+    }
+  },
+  {
+    "AlertType": "RunKeyPersistence",
+    "Severity": "High",
+    "TimeGenerated": "2026-03-03T16:36:23.388181Z",
+    "DeviceName": "ENG-WKS01",
+    "User": "ryan",
+    "Summary": "Registry Run key modified (possible persistence)",
+    "Pivot": {
+      "DeviceName": "ENG-WKS01",
+      "User": "ryan"
+    }
+  },
+  {
+    "AlertType": "EncodedPowerShell",
+    "Severity": "High",
+    "TimeGenerated": "2026-03-03T16:17:37.388181Z",
+    "DeviceName": "FIN-WKS02",
+    "User": "ryan",
+    "Summary": "PowerShell executed with -enc (encoded command)",
+    "Pivot": {
+      "DeviceName": "FIN-WKS02",
+      "User": "ryan",
+      "Scenario": "powershell_encoded"
+    }
+  },
+  {
+    "AlertType": "EncodedPowerShell",
+    "Severity": "High",
+    "TimeGenerated": "2026-03-03T13:49:54.388181Z",
+    "DeviceName": "SRV-FILE01",
+    "User": "ryan",
+    "Summary": "PowerShell executed with -enc (encoded command)",
+    "Pivot": {
+      "DeviceName": "SRV-FILE01",
+      "User": "ryan",
+      "Scenario": "powershell_encoded"
+    }
+  },
+  {
+    "AlertType": "EncodedPowerShell",
+    "Severity": "High",
+    "TimeGenerated": "2026-03-03T11:37:25.388181Z",
+    "DeviceName": "WIN10-LAB",
+    "User": "ryan",
+    "Summary": "PowerShell executed with -enc (encoded command)",
+    "Pivot": {
+      "DeviceName": "WIN10-LAB",
+      "User": "ryan",
+      "Scenario": "powershell_encoded"
+    }
+  },
+  {
+    "AlertType": "RunKeyPersistence",
+    "Severity": "High",
+    "TimeGenerated": "2026-03-03T11:13:12.388181Z",
+    "DeviceName": "SRV-FILE01",
+    "User": "ryan",
+    "Summary": "Registry Run key modified (possible persistence)",
+    "Pivot": {
+      "DeviceName": "SRV-FILE01",
+      "User": "ryan"
+    }
+  },
+  {
+    "AlertType": "RunKeyPersistence",
+    "Severity": "High",
+    "TimeGenerated": "2026-03-03T09:54:59.388181Z",
+    "DeviceName": "SRV-FILE01",
+    "User": "ryan",
+    "Summary": "Registry Run key modified (possible persistence)",
+    "Pivot": {
+      "DeviceName": "SRV-FILE01",
+      "User": "ryan"
+    }
+  },
+  {
+    "AlertType": "PasswordSpray",
+    "Severity": "High",
+    "TimeGenerated": "2026-03-03T06:54:34.388181Z",
+    "DeviceName": "ENG-WKS01",
+    "User": "admin",
+    "Summary": "Multiple failed logons from same SourceIP (12 failures)",
+    "Pivot": {
+      "SourceIP": "147.25.183.213",
+      "DeviceName": "ENG-WKS01"
+    }
+  },
+  {
+    "AlertType": "PasswordSpray",
+    "Severity": "High",
+    "TimeGenerated": "2026-03-03T05:20:38.388181Z",
+    "DeviceName": "WIN10-LAB",
+    "User": "admin",
+    "Summary": "Multiple failed logons from same SourceIP (12 failures)",
+    "Pivot": {
+      "SourceIP": "206.9.68.85",
+      "DeviceName": "WIN10-LAB"
+    }
+  }
+]

@@ -1,0 +1,35 @@
+{
+  "TimeGenerated": "ISO-8601 UTC timestamp",
+  "DeviceName": "string",
+  "User": "string",
+  "EventType": "ProcessCreate | NetworkConnect | FileCreate | RegistrySet | Logon",
+  "Severity": "Informational | Low | Medium | High",
+  "Scenario": "benign | powershell_encoded | password_spray | persistence_runkey",
+  "Process": {
+    "Image": "string",
+    "CommandLine": "string",
+    "ParentImage": "string",
+    "SHA256": "string",
+    "IntegrityLevel": "Low | Medium | High | System"
+  },
+  "Network": {
+    "DestIP": "string",
+    "DestPort": "int",
+    "Domain": "string",
+    "Protocol": "TCP | UDP"
+  },
+  "File": {
+    "Path": "string",
+    "Operation": "Create | Modify"
+  },
+  "Registry": {
+    "Key": "string",
+    "ValueName": "string",
+    "ValueData": "string"
+  },
+  "Auth": {
+    "LogonResult": "Success | Failure",
+    "LogonType": "Interactive | Remote | Service",
+    "SourceIP": "string"
+  }
+}
