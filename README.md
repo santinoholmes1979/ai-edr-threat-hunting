@@ -1,92 +1,162 @@
-\# AI-Assisted EDR Threat Hunting Lab (Synthetic Telemetry)
+AI-Assisted EDR Threat Hunting & Detection Engineering Lab
 
+This project simulates a modern Security Operations Center (SOC) environment focused on endpoint detection, threat hunting, and detection engineering workflows.
 
+The platform generates synthetic endpoint telemetry, runs detection rules aligned with the MITRE ATT&CK framework, and provides an investigation interface for analysts to triage alerts and investigate attack activity.
 
-A portfolio-ready cyber project that simulates \*\*EDR/endpoint telemetry\*\*, runs \*\*detection engineering rules\*\*, and provides a \*\*Streamlit investigation console\*\* with an \*\*AI-style SOC triage note\*\* (local) including \*\*MITRE ATT\&CK mapping\*\*.
+The goal of this project is to demonstrate how detection logic, adversary simulation, and analyst workflows interact in a realistic SOC environment.
 
+Built to demonstrate: EDR concepts, threat hunting, detection engineering, SOC triage workflows, and clean Python security tooling.
 
+What This Project Does
+1. Generates Synthetic EDR Telemetry
 
-> Built to demonstrate: \*\*EDR concepts, threat hunting, detection logic, triage workflows, and clean engineering practices.\*\*
+Creates realistic endpoint-style events including:
 
+Process creation (parent/child relationships, command lines)
 
+Network connections (domain / IP / port)
 
----
+Authentication events (success / failure, remote logons)
 
+Registry modifications (persistence patterns)
 
+File creation activity
 
-\## What this project does
+Output file:
 
+data/raw/events.jsonl
 
+This dataset simulates the type of telemetry typically ingested by EDR platforms.
 
-\### 1) Generates synthetic EDR telemetry
+2. Detection Engineering Rules
 
-Creates realistic endpoint-style logs:
+The platform runs detection rules that generate alerts from the telemetry.
 
-\- Process creation (parent/child relationships, command lines)
+Current detections include:
 
-\- Network connections (domain/IP/port)
+Detection	MITRE Technique
+Encoded PowerShell execution	T1059 – Command Execution
+Password spray behavior	T1110 – Brute Force
+Registry Run Key persistence	T1547 – Boot or Logon Autostart
 
-\- Authentication events (success/failure, remote logons)
+Alerts are written to:
 
-\- Registry modifications (persistence patterns)
+data/alerts.json
 
-\- File creation activity
+Each alert includes:
 
+severity
 
+detection type
 
-Output: `data/raw/events.jsonl`
+confidence score
 
+contextual metadata
 
+3. Streamlit "EDR Console"
 
-\### 2) Runs detection engineering rules
+A lightweight investigation interface simulating an analyst workflow.
 
-Creates alerts from the telemetry:
+Alerts Tab
 
-\- \*\*Encoded PowerShell execution\*\* (`-enc`)
+Displays generated detections with filtering and inspection capabilities.
 
-\- \*\*Password spray-style failed logons\*\*
+Hunt Explorer
 
-\- \*\*Persistence via Run key modification\*\*
+Allows analysts to pivot across telemetry fields including:
 
+DeviceName
 
+User
 
-Output: `data/alerts.json`
+EventType
 
+Scenario
 
+This mimics threat hunting workflows in real SOC environments.
 
-\### 3) Streamlit “EDR console”
+AI Triage
 
-A mini investigation UI with:
+For a selected alert, the platform generates:
 
-\- \*\*Alerts table\*\*
+contextual event timeline
 
-\- \*\*Hunt Explorer\*\* pivots (DeviceName/User/EventType/Scenario)
+SOC-style incident note
 
-\- \*\*AI Triage\*\* tab: SOC-ready incident note + MITRE mapping + next steps
+MITRE ATT&CK mapping
 
+investigation guidance
 
+Detection Engineering Capabilities
 
----
+This project demonstrates realistic detection tuning workflows used in modern SOC environments.
 
+Alert Confidence Scoring
 
+Alerts are assigned a confidence score based on rule logic and context.
 
-\## Quickstart
+Allowlisting / Suppression
 
+Analysts can suppress alerts for:
 
+known users
 
-```powershell
+known devices
 
+benign processes
+
+Detection Threshold Tuning
+
+Detection thresholds can be adjusted dynamically through a configuration file:
+
+detections/config/tuning.json
+Adversary Campaign Simulation
+
+The platform can simulate a realistic attack chain:
+
+Password spray
+→ PowerShell execution
+→ Persistence via registry Run key
+
+Detections trigger across the attack chain, allowing analysts to observe how alerts correlate during an investigation.
+
+MITRE ATT&CK Coverage
+
+The system maps detections to ATT&CK techniques and visualizes detection coverage.
+
+Current coverage includes:
+
+T1059 – Command Execution
+
+T1110 – Brute Force
+
+T1547 – Persistence
+
+Technology Stack
+
+Python
+
+Streamlit
+
+Pandas
+
+Synthetic telemetry generation
+
+MITRE ATT&CK framework
+
+Quickstart
 python -m venv venv
-
-.\\venv\\Scripts\\activate
+.\venv\Scripts\activate
 
 pip install -r requirements.txt
 
+python .\generator\generate_logs.py
+python .\detections\rules.py
 
+streamlit run .\streamlit_app\app.py
+Author
 
-python .\\generator\\generate\_logs.py
-
-python .\\detections\\rules.py
-
-streamlit run .\\streamlit\_app\\app.py
-
+Ryan Holmes
+B.S. Security & Risk Analysis – Penn State
+Focus: Detection Engineering, Threat Hunting, AI-assisted Security Tooling
