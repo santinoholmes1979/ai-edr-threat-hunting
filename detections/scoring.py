@@ -38,6 +38,16 @@ def apply_allowlist(alert, allowlist):
 
     return False, ""
 
+TUNING_PATH = Path("detections/config/tuning.json")
+
+def load_tuning():
+    if not TUNING_PATH.exists():
+        return {
+            "password_spray_failure_threshold": 10,
+            "encoded_powershell_min_length": 20
+        }
+    return json.loads(TUNING_PATH.read_text(encoding="utf-8"))
+
 
 def score_alert(alert):
 
@@ -46,12 +56,34 @@ def score_alert(alert):
 
     rationale = []
 
+    tuning = load_tuning()
+
+    # Encoded PowerShell logic
     if atype == "EncodedPowerShell":
         rationale.append("Encoded command detected")
 
+    # Password Spray detection tuning
     if atype == "PasswordSpray":
-        rationale.append("Multiple authentication failures")
 
+        thr = int(tuning.get("password_spray_failure_threshold", 10))
+
+        fails = alert.get("FailureCount")
+
+        if isinstance(fails, int):
+
+            if fails >= thr * 2:
+                score += 10
+                rationale.append(f"FailureCount={fails} greatly exceeds threshold={thr}")
+
+            elif fails >= thr:
+                score += 5
+                rationale.append(f"FailureCount={fails} meets threshold={thr}")
+
+            else:
+                score -= 10
+                rationale.append(f"FailureCount={fails} below threshold={thr}")
+
+    # Persistence detection
     if atype == "RunKeyPersistence":
         rationale.append("Registry persistence mechanism")
 

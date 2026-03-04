@@ -1,6 +1,10 @@
 import sys
 from pathlib import Path
 
+sys.path.append(str(Path(__file__).resolve().parents[1]))
+
+from detections.rules import run_all as run_detections
+
 # Ensure repo root is on PYTHONPATH
 REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
@@ -155,18 +159,53 @@ st.title("AI-Assisted EDR Threat Hunting (Synthetic Telemetry)")
 st.sidebar.header("Lab Controls")
 
 with st.sidebar.expander("Generate synthetic dataset", expanded=False):
-    total_events = st.sidebar.number_input("Benign events", min_value=1000, max_value=200000, value=20000, step=1000)
-    injections = st.sidebar.number_input("Attack injections", min_value=1, max_value=200, value=12, step=1)
+    total_events = st.sidebar.number_input(
+        "Benign events", min_value=1000, max_value=200000, value=20000, step=1000
+    )
+    injections = st.sidebar.number_input(
+        "Attack injections", min_value=1, max_value=200, value=12, step=1
+    )
 
-    if st.sidebar.button("Generate + Detect", type="primary"):
+    if st.sidebar.button("Generate + Detect", type="primary", key="btn_generate_detect"):
         with st.spinner("Generating telemetry..."):
             generate_dataset(total_events=total_events, attack_injections=injections)
         with st.spinner("Running detections..."):
             n_alerts, out = run_detections()
         st.sidebar.success(f"Done. Alerts: {n_alerts} ({out})")
         st.cache_data.clear()
-        # Rerun (Streamlit version compatibility)
-if st.sidebar.button("Launch Adversary Campaign"):
+        try:
+            st.rerun()
+        except Exception:
+            pass
+
+st.sidebar.divider()
+st.sidebar.subheader("Attack Simulation")
+
+if st.sidebar.button("Launch Adversary Campaign", key="btn_launch_campaign"):
+    with st.spinner("Launching adversary campaign..."):
+        generate_campaign()
+    with st.spinner("Running detections..."):
+        n_alerts, out = run_detections()
+    st.sidebar.success(f"Campaign complete. Alerts: {n_alerts} ({out})")
+    st.cache_data.clear()
+    try:
+        st.rerun()
+    except Exception:
+        pass
+
+if st.sidebar.button("Run Full Attack Chain", type="primary", key="btn_run_attack_chain"):
+    with st.spinner("Launching full attack chain..."):
+        # Uses your campaign generator; if you later add multi-stage chaining,
+        # this is where it will live.
+        generate_campaign()
+    with st.spinner("Running detections..."):
+        n_alerts, out = run_detections()
+    st.sidebar.success(f"Attack chain complete. Alerts: {n_alerts} ({out})")
+    st.cache_data.clear()
+    try:
+        st.rerun()
+    except Exception:
+        pass
 
     with st.spinner("Launching simulated attack chain..."):
         events = generate_campaign()
@@ -297,40 +336,56 @@ with tab3:
         # INCIDENT TIMELINE (NEW)
         # -----------------------------
 
-        st.subheader("Incident Timeline")
+st.subheader("Incident Timeline")
 
-        timeline = ctx.copy()
+timeline = ctx.copy()
 
-        if "TimeGenerated_dt" in timeline.columns:
-            timeline["TimeBucket"] = timeline["TimeGenerated_dt"].dt.floor("1min")
-        else:
-            timeline["TimeBucket"] = pd.to_datetime(
-                timeline["TimeGenerated"], utc=True, errors="coerce"
-            ).dt.floor("1min")
+if "TimeGenerated_dt" in timeline.columns:
+    timeline["TimeBucket"] = timeline["TimeGenerated_dt"].dt.floor("1min")
+else:
+    timeline["TimeBucket"] = pd.to_datetime(
+        timeline["TimeGenerated"], utc=True, errors="coerce"
+    ).dt.floor("1min")
 
-        if "EventType" in timeline.columns:
+if "EventType" in timeline.columns:
+    counts = (
+        timeline.groupby(["TimeBucket", "EventType"])
+        .size()
+        .reset_index(name="Count")
+    )
 
-            counts = (
-                timeline.groupby(["TimeBucket", "EventType"])
-                .size()
-                .reset_index(name="Count")
-            )
+    pivot = (
+        counts.pivot(index="TimeBucket", columns="EventType", values="Count")
+        .fillna(0)
+    )
 
-            pivot = (
-                counts.pivot(index="TimeBucket", columns="EventType", values="Count")
-                .fillna(0)
-            )
+    st.line_chart(pivot)
 
-            st.line_chart(pivot)
+st.divider()
 
-        # -----------------------------
+st.subheader("Attack Chain Progression")
 
-        st.divider()
+if "Scenario" in ctx.columns:
+    stages = (
+        ctx.groupby("Scenario")
+        .size()
+        .reset_index(name="Events")
+        .sort_values("Events", ascending=False)
+    )
 
-        note = generate_soc_note(alert, ctx)
+    st.dataframe(stages, use_container_width=True)
 
-        st.subheader("SOC Incident Note")
-        st.json(note)
+    st.caption("This table shows which adversary behaviors occurred during the investigation window.")
+else:
+    st.info("No campaign stages detected in this alert context.")
+
+st.divider()
+
+note = generate_soc_note(alert, ctx)
+
+st.subheader("SOC Incident Note")
+st.json(note)
+
 st.divider()
 st.subheader("Tuning Actions (Detection Engineering)")
 
@@ -453,9 +508,33 @@ with tab4:
             st.divider()
             st.caption("Tip: add more mappings in ALERTTYPE_TO_ATTACK and SCENARIO_TO_ATTACK as you expand detections.")
 
-with tab5:
-    st.subheader("Detection Tuning Dashboard")
-    st.caption("Quick view of signal-to-noise: confidence distribution, suppression rate, and top noisy alert types.")
+st.subheader("Rule Tuning Controls")
+st.caption("Adjust detection thresholds and re-run detections. Changes persist in detections/config/tuning.json.")
+
+tuning_path = Path("detections/config/tuning.json")
+tuning_path.parent.mkdir(parents=True, exist_ok=True)
+
+if tuning_path.exists():
+    tuning = json.loads(tuning_path.read_text(encoding="utf-8"))
+else:
+    tuning = {"password_spray_failure_threshold": 10, "encoded_powershell_min_length": 20}
+
+thr = st.slider(
+    "Password Spray failure threshold (FailureCount)",
+    min_value=3,
+    max_value=50,
+    value=int(tuning.get("password_spray_failure_threshold", 10)),
+    key="tune_pw_spray_thr"
+)
+
+if st.button("Save tuning config + Re-run detections", key="btn_save_tuning"):
+    tuning["password_spray_failure_threshold"] = int(thr)
+    tuning_path.write_text(json.dumps(tuning, indent=2), encoding="utf-8")
+    st.success(f"Saved tuning.json (password_spray_failure_threshold={thr})")
+
+    n_alerts, out = run_detections()
+    st.info(f"Re-ran detections. Alerts now: {n_alerts}")
+    st.cache_data.clear()
 
     alerts_df = load_alerts()
     if alerts_df.empty:
@@ -509,6 +588,32 @@ with tab5:
             "- If confidence is mostly low, enrich detections with stronger signals.\n"
             "- Suppression should be targeted—avoid suppressing broad users/devices unless verified benign."
         )
+
+        st.divider()
+
+st.subheader("MITRE ATT&CK Coverage")
+
+mitre_map = {
+    "EncodedPowerShell": ("T1059", "Command Execution"),
+    "PasswordSpray": ("T1110", "Brute Force"),
+    "RunKeyPersistence": ("T1547", "Boot/Logon Autostart")
+}
+
+alerts_df["MITRE_Technique"] = alerts_df["AlertType"].map(
+    lambda x: mitre_map.get(x, ("Unknown", "Unknown"))[0]
+)
+
+alerts_df["MITRE_Tactic"] = alerts_df["AlertType"].map(
+    lambda x: mitre_map.get(x, ("Unknown", "Unknown"))[1]
+)
+
+coverage = (
+    alerts_df.groupby(["MITRE_Technique", "MITRE_Tactic"])
+    .size()
+    .reset_index(name="Detections")
+)
+
+st.dataframe(coverage, use_container_width=True)
 
 col1, col2 = st.columns([1, 2])
 

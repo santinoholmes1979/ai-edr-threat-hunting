@@ -1,0 +1,4 @@
+{
+  "password_spray_failure_threshold": 10,
+  "encoded_powershell_min_length": 20
+}
