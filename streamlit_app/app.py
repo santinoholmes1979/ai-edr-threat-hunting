@@ -18,6 +18,86 @@ from detections.rules import run_all as run_detections
 from triage_ai.triage import load_events as triage_load_events, events_around, generate_soc_note
 from triage_ai.reporting import generate_incident_report
 
+# -----------------------------
+# MITRE ATT&CK helpers
+# -----------------------------
+TACTIC_ORDER = [
+    "Initial Access",
+    "Execution",
+    "Credential Access",
+    "Persistence",
+    "Discovery",
+    "Defense Evasion",
+    "Command and Control",
+    "Lateral Movement",
+    "Exfiltration",
+]
+
+ALERTTYPE_TO_ATTACK = {
+    "EncodedPowerShell": [("Execution", "T1059.001", "PowerShell")],
+    "PasswordSpray": [("Credential Access", "T1110", "Brute Force (Password Spraying)")],
+    "RunKeyPersistence": [("Persistence", "T1547.001", "Registry Run Keys/Startup Folder")],
+}
+
+SCENARIO_TO_ATTACK = {
+    "phishing_doc": [("Initial Access", "T1566", "Phishing")],
+    "encoded_powershell": [("Execution", "T1059.001", "PowerShell")],
+    "password_spray": [("Credential Access", "T1110", "Brute Force")],
+    "runkey_persistence": [("Persistence", "T1547.001", "Registry Run Keys/Startup Folder")],
+}
+
+def build_attack_chain(alert: dict, ctx_df):
+    chain = []
+
+    # 1) from AlertType
+    atype = alert.get("AlertType")
+    if atype in ALERTTYPE_TO_ATTACK:
+        chain += ALERTTYPE_TO_ATTACK[atype]
+
+    # 2) from scenarios found in context events
+    if ctx_df is not None and len(ctx_df) > 0 and "Scenario" in ctx_df.columns:
+        scenarios = sorted(set([s for s in ctx_df["Scenario"].dropna().tolist() if isinstance(s, str)]))
+        for s in scenarios:
+            chain += SCENARIO_TO_ATTACK.get(s, [])
+
+    # de-dupe while preserving order
+    seen = set()
+    uniq = []
+    for item in chain:
+        if item not in seen:
+            uniq.append(item)
+            seen.add(item)
+
+    # sort by tactic order (preserve within-tactic sequence)
+    order = {t: i for i, t in enumerate(TACTIC_ORDER)}
+    uniq.sort(key=lambda x: order.get(x[0], 999))
+
+    return uniq
+
+def chain_to_dot(chain):
+    # DOT string for st.graphviz_chart
+    lines = [
+        "digraph attack {",
+        'rankdir="LR";',
+        'node [shape="box", style="rounded"];'
+    ]
+
+    # Create tactic nodes (group techniques under tactics visually)
+    # We'll render each step as "Tactic\nTechniqueID: Name"
+    nodes = []
+    for i, (tactic, tid, name) in enumerate(chain):
+        label = f"{tactic}\\n{tid}: {name}"
+        node_id = f"n{i}"
+        nodes.append(node_id)
+        lines.append(f'{node_id} [label="{label}"];')
+
+    # Connect sequentially
+    for i in range(len(nodes) - 1):
+        lines.append(f"{nodes[i]} -> {nodes[i+1]};")
+
+    lines.append("}")
+    return "\n".join(lines)
+
 EVENTS_FILE = Path("data/raw/events.jsonl")
 ALERTS_FILE = Path("data/alerts.json")
 
@@ -69,7 +149,7 @@ if st.sidebar.button("Launch Adversary Campaign"):
 
     st.cache_data.clear()
 
-tab1, tab2, tab3 = st.tabs(["Alerts", "Hunt Explorer", "AI Triage"])
+tab1, tab2, tab3, tab4 = st.tabs(["Alerts", "Hunt Explorer", "AI Triage", "ATT&CK Graph"])
 
 with tab1:
     st.subheader("Detections / Alerts")
@@ -189,8 +269,90 @@ with tab3:
 
         st.subheader("SOC Incident Note")
         st.json(note)
-if st.button("Generate Incident Report"):
+# --- Report generation + export ---
+# --- Report generation + export ---
+if "last_report_path" not in st.session_state:
+    st.session_state.last_report_path = None
 
-    report_file = generate_incident_report(alert, ctx, note)
+with tab4:
+    st.subheader("MITRE ATT&CK Graph")
+    st.caption("Visualizes the inferred attack chain from the selected alert + context telemetry.")
 
-    st.success(f"Incident report created: {report_file}")
+    alerts_df = load_alerts()
+    if alerts_df.empty:
+        st.warning("No alerts available yet. Generate + Detect or Launch Adversary Campaign.")
+    else:
+        alerts_df = alerts_df.reset_index(drop=True)
+
+        sel = st.number_input(
+            "Select alert index (from alerts.json)",
+            min_value=0,
+            max_value=len(alerts_df)-1,
+            value=0,
+            key="attack_graph_alert_idx"
+        )
+        alert = alerts_df.iloc[int(sel)].to_dict()
+
+        minutes = st.slider(
+            "Context window (minutes)",
+            min_value=5,
+            max_value=30,
+            value=10,
+            step=5,
+            key="attack_graph_minutes"
+        )
+
+        # load events and build context
+        df_events = triage_load_events()
+        ctx = events_around(
+            df_events,
+            alert.get("DeviceName"),
+            alert.get("User"),
+            alert.get("TimeGenerated"),
+            minutes=minutes
+        )
+
+        chain = build_attack_chain(alert, ctx)
+
+        if not chain:
+            st.info("No ATT&CK techniques inferred yet. (Check AlertType/Scenario mappings.)")
+        else:
+            # Table view
+            import pandas as pd
+            chain_df = pd.DataFrame(chain, columns=["Tactic", "TechniqueID", "Technique"])
+            st.dataframe(chain_df, use_container_width=True)
+
+            st.divider()
+
+            # Graph view
+            dot = chain_to_dot(chain)
+            st.graphviz_chart(dot, use_container_width=True)
+
+            st.divider()
+            st.caption("Tip: add more mappings in ALERTTYPE_TO_ATTACK and SCENARIO_TO_ATTACK as you expand detections.")
+
+col1, col2 = st.columns([1, 2])
+
+with col1:
+    if st.button("Generate Incident Report", key="btn_gen_report"):
+        report_file = generate_incident_report(alert, ctx, note)
+        st.session_state.last_report_path = str(report_file)
+        st.success(f"Incident report created: {report_file}")
+
+with col2:
+    if st.session_state.last_report_path:
+        from pathlib import Path
+        p = Path(st.session_state.last_report_path)
+
+        if p.exists():
+            report_bytes = p.read_bytes()
+            st.download_button(
+                label="Download Report (.md)",
+                data=report_bytes,
+                file_name=p.name,
+                mime="text/markdown",
+                key="btn_dl_report"
+            )
+        else:
+            st.warning("Last report file not found on disk. Generate a new report.")
+# --- end report export ---
