@@ -10,7 +10,13 @@
       "DeviceName": "ENG-WKS01",
       "User": "ryan",
       "Scenario": "powershell_encoded"
-    }
+    },
+    "Confidence": 80,
+    "Rationale": [
+      "Encoded command detected"
+    ],
+    "Suppressed": true,
+    "SuppressionReason": "Allowlisted user ryan"
   },
   {
     "AlertType": "PasswordSpray",
@@ -22,7 +28,13 @@
     "Pivot": {
       "SourceIP": "162.241.8.159",
       "DeviceName": "ENG-WKS01"
-    }
+    },
+    "Confidence": 75,
+    "Rationale": [
+      "Multiple authentication failures"
+    ],
+    "Suppressed": true,
+    "SuppressionReason": "Allowlisted user svc-backup"
   },
   {
     "AlertType": "RunKeyPersistence",
@@ -34,7 +46,13 @@
     "Pivot": {
       "DeviceName": "FIN-WKS02",
       "User": "ryan"
-    }
+    },
+    "Confidence": 85,
+    "Rationale": [
+      "Registry persistence mechanism"
+    ],
+    "Suppressed": true,
+    "SuppressionReason": "Allowlisted user ryan"
   },
   {
     "AlertType": "EncodedPowerShell",
@@ -47,7 +65,13 @@
       "DeviceName": "ENG-WKS01",
       "User": "ryan",
       "Scenario": "powershell_encoded"
-    }
+    },
+    "Confidence": 80,
+    "Rationale": [
+      "Encoded command detected"
+    ],
+    "Suppressed": true,
+    "SuppressionReason": "Allowlisted user ryan"
   },
   {
     "AlertType": "RunKeyPersistence",
@@ -59,7 +83,13 @@
     "Pivot": {
       "DeviceName": "ENG-WKS01",
       "User": "ryan"
-    }
+    },
+    "Confidence": 85,
+    "Rationale": [
+      "Registry persistence mechanism"
+    ],
+    "Suppressed": true,
+    "SuppressionReason": "Allowlisted user ryan"
   },
   {
     "AlertType": "EncodedPowerShell",
@@ -72,7 +102,13 @@
       "DeviceName": "FIN-WKS02",
       "User": "ryan",
       "Scenario": "powershell_encoded"
-    }
+    },
+    "Confidence": 80,
+    "Rationale": [
+      "Encoded command detected"
+    ],
+    "Suppressed": true,
+    "SuppressionReason": "Allowlisted user ryan"
   },
   {
     "AlertType": "EncodedPowerShell",
@@ -85,7 +121,13 @@
       "DeviceName": "SRV-FILE01",
       "User": "ryan",
       "Scenario": "powershell_encoded"
-    }
+    },
+    "Confidence": 80,
+    "Rationale": [
+      "Encoded command detected"
+    ],
+    "Suppressed": true,
+    "SuppressionReason": "Allowlisted user ryan"
   },
   {
     "AlertType": "EncodedPowerShell",
@@ -98,7 +140,13 @@
       "DeviceName": "WIN10-LAB",
       "User": "ryan",
       "Scenario": "powershell_encoded"
-    }
+    },
+    "Confidence": 80,
+    "Rationale": [
+      "Encoded command detected"
+    ],
+    "Suppressed": true,
+    "SuppressionReason": "Allowlisted user ryan"
   },
   {
     "AlertType": "RunKeyPersistence",
@@ -110,7 +158,13 @@
     "Pivot": {
       "DeviceName": "SRV-FILE01",
       "User": "ryan"
-    }
+    },
+    "Confidence": 85,
+    "Rationale": [
+      "Registry persistence mechanism"
+    ],
+    "Suppressed": true,
+    "SuppressionReason": "Allowlisted user ryan"
   },
   {
     "AlertType": "RunKeyPersistence",
@@ -122,7 +176,13 @@
     "Pivot": {
       "DeviceName": "SRV-FILE01",
       "User": "ryan"
-    }
+    },
+    "Confidence": 85,
+    "Rationale": [
+      "Registry persistence mechanism"
+    ],
+    "Suppressed": true,
+    "SuppressionReason": "Allowlisted user ryan"
   },
   {
     "AlertType": "PasswordSpray",
@@ -134,7 +194,12 @@
     "Pivot": {
       "SourceIP": "147.25.183.213",
       "DeviceName": "ENG-WKS01"
-    }
+    },
+    "Confidence": 75,
+    "Rationale": [
+      "Multiple authentication failures"
+    ],
+    "Suppressed": false
   },
   {
     "AlertType": "PasswordSpray",
@@ -146,6 +211,11 @@
     "Pivot": {
       "SourceIP": "206.9.68.85",
       "DeviceName": "WIN10-LAB"
-    }
+    },
+    "Confidence": 75,
+    "Rationale": [
+      "Multiple authentication failures"
+    ],
+    "Suppressed": false
   }
 ]

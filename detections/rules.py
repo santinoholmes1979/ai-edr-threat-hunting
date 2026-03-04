@@ -1,6 +1,13 @@
+import sys
+from pathlib import Path
+
+# Add repo root to Python path
+sys.path.append(str(Path(__file__).resolve().parents[1]))
+
 import json
 from pathlib import Path
 from collections import defaultdict
+from detections.scoring import load_allowlist, apply_allowlist, score_alert
 
 DATA_FILE = Path("data/raw/events.jsonl")
 
@@ -83,7 +90,9 @@ def main():
     print(f"Wrote {n} alerts -> {out}")
 
 def run_all():
+
     events = list(load_events())
+
     alerts = []
     alerts += detect_encoded_powershell(events)
     alerts += detect_password_spray(events)
@@ -91,9 +100,26 @@ def run_all():
 
     alerts.sort(key=lambda a: a["TimeGenerated"], reverse=True)
 
+    allowlist = load_allowlist()
+
+    for a in alerts:
+
+        conf, rationale = score_alert(a)
+        a["Confidence"] = conf
+        a["Rationale"] = rationale
+
+        suppressed, reason = apply_allowlist(a, allowlist)
+
+        a["Suppressed"] = suppressed
+
+        if suppressed:
+            a["SuppressionReason"] = reason
+
     out = Path("data/alerts.json")
     out.parent.mkdir(parents=True, exist_ok=True)
+
     out.write_text(json.dumps(alerts, indent=2), encoding="utf-8")
+
     return len(alerts), out
 
 if __name__ == "__main__":

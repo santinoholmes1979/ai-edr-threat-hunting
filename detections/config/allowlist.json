@@ -1,0 +1,18 @@
+{
+  "users": [
+    "ryan",
+    "svc-backup",
+    "svc-patch"
+  ],
+  "devices": [
+    "LAB-TEST01"
+  ],
+  "process_names": [
+    "healthcheck.exe"
+  ],
+  "commandline_contains": [
+    "Chocolatey",
+    "winget upgrade",
+    "Defender\\MpCmdRun.exe"
+  ]
+}

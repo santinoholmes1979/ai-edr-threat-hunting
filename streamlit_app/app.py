@@ -149,6 +149,39 @@ if st.sidebar.button("Launch Adversary Campaign"):
 
     st.cache_data.clear()
 
+from pathlib import Path
+import json
+
+ALLOWLIST_PATH = Path("detections/config/allowlist.json")
+
+def ensure_allowlist():
+    ALLOWLIST_PATH.parent.mkdir(parents=True, exist_ok=True)
+    if not ALLOWLIST_PATH.exists():
+        ALLOWLIST_PATH.write_text(
+            json.dumps({"users": [], "devices": [], "process_names": [], "commandline_contains": []}, indent=2),
+            encoding="utf-8"
+        )
+
+def add_to_allowlist(kind: str, value: str) -> bool:
+    """
+    kind: 'users' or 'devices'
+    """
+    ensure_allowlist()
+    data = json.loads(ALLOWLIST_PATH.read_text(encoding="utf-8"))
+    if kind not in data:
+        data[kind] = []
+
+    value = (value or "").strip()
+    if not value:
+        return False
+
+    if value not in data[kind]:
+        data[kind].append(value)
+        data[kind] = sorted(set(data[kind]))
+
+    ALLOWLIST_PATH.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    return True
+
 tab1, tab2, tab3, tab4, tab5 = st.tabs(["Alerts", "Hunt Explorer", "AI Triage", "ATT&CK Graph", "Tuning"])
 
 with tab1:
@@ -269,6 +302,37 @@ with tab3:
 
         st.subheader("SOC Incident Note")
         st.json(note)
+
+st.divider()
+st.subheader("Tuning Actions (Detection Engineering)")
+
+colA, colB, colC = st.columns([2, 2, 3])
+
+with colA:
+    if st.button("Allowlist User", key="btn_allowlist_user"):
+        u = alert.get("User")
+        if add_to_allowlist("users", u):
+            st.success(f"Added user to allowlist: {u}")
+            # re-run detections so suppression takes effect immediately
+            n_alerts, out = run_detections()
+            st.info(f"Re-ran detections. Alerts now: {n_alerts}")
+            st.cache_data.clear()
+        else:
+            st.warning("No User found on this alert to allowlist.")
+
+with colB:
+    if st.button("Allowlist Device", key="btn_allowlist_device"):
+        d = alert.get("DeviceName")
+        if add_to_allowlist("devices", d):
+            st.success(f"Added device to allowlist: {d}")
+            n_alerts, out = run_detections()
+            st.info(f"Re-ran detections. Alerts now: {n_alerts}")
+            st.cache_data.clear()
+        else:
+            st.warning("No DeviceName found on this alert to allowlist.")
+
+with colC:
+    st.caption("This writes to detections/config/allowlist.json and re-runs detections so future alerts can be suppressed.")
 # --- Report generation + export ---
 # --- Report generation + export ---
 if "last_report_path" not in st.session_state:
