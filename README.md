@@ -8,6 +8,40 @@ The goal of this project is to demonstrate how detection logic, adversary simula
 
 Built to demonstrate: EDR concepts, threat hunting, detection engineering, SOC triage workflows, and clean Python security tooling.
 
+## Architecture
+
+```mermaid
+flowchart TD
+  A[Telemetry Generator<br/>Synthetic Endpoint Activity] --> B[data/raw/events.jsonl]
+
+  B --> C[Detection Engine<br/>detections/rules.py]
+
+  C --> D[data/alerts.json<br/>Alert Metadata]
+
+  D --> E[Streamlit SOC Console<br/>streamlit_app/app.py]
+
+  E --> F[Alerts View<br/>Alert Filtering & Investigation]
+
+  E --> G[Hunt Explorer<br/>Pivot: Device / User / EventType / Scenario]
+
+  E --> H[AI Triage Engine]
+
+  H --> I[Context Window Analysis]
+
+  I --> J[Incident Timeline Visualization]
+
+  H --> K[AI-Generated SOC Incident Notes]
+
+  E --> L[Detection Tuning Dashboard]
+
+  L --> M[detections/config/tuning.json]
+
+  L --> N[detections/config/allowlist.json]
+
+  M --> C
+  N --> C
+```
+
 What This Project Does
 1. Generates Synthetic EDR Telemetry
 
