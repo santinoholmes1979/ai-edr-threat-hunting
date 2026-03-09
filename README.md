@@ -1,3 +1,8 @@
+![Python](https://img.shields.io/badge/Python-3.10+-blue)
+![MITRE ATT&CK](https://img.shields.io/badge/MITRE-ATT%26CK-red)
+![Streamlit](https://img.shields.io/badge/Dashboard-Streamlit-orange)
+![Security](https://img.shields.io/badge/Domain-Cybersecurity-green)
+
 # AI-Assisted EDR Threat Hunting & Detection Engineering Lab
 
 An AI-assisted SOC and detection engineering lab built in **Python and Streamlit**.
