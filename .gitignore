@@ -216,3 +216,7 @@ data/raw/events.jsonl
 # OS/editor noise
 .DS_Store
 Thumbs.db
+
+# Generated outputs
+outputs/
+reports/
