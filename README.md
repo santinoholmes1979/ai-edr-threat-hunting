@@ -1,196 +1,183 @@
-AI-Assisted EDR Threat Hunting & Detection Engineering Lab
+# AI-Assisted EDR Threat Hunting Lab
 
-This project simulates a modern Security Operations Center (SOC) environment focused on endpoint detection, threat hunting, and detection engineering workflows.
+An AI-assisted SOC and detection engineering lab built in Python and Streamlit. This project simulates endpoint telemetry, generates adversary activity, applies custom detection rules, maps detections to MITRE ATT&CK, and provides a SOC-style dashboard for investigation, triage, and coverage analysis.
 
-The platform generates synthetic endpoint telemetry, runs detection rules aligned with the MITRE ATT&CK framework, and provides an investigation interface for analysts to triage alerts and investigate attack activity.
+## Why I built this
 
-The goal of this project is to demonstrate how detection logic, adversary simulation, and analyst workflows interact in a realistic SOC environment.
+I built this project to demonstrate practical blue-team and detection engineering skills in a hands-on environment. The goal was to create a mini SOC lab that shows how telemetry, detections, triage, ATT&CK mapping, analyst workflow, and coverage metrics fit together in an end-to-end security pipeline.
 
-Built to demonstrate: EDR concepts, threat hunting, detection engineering, SOC triage workflows, and clean Python security tooling.
+## Core capabilities
+
+- Synthetic endpoint telemetry generation
+- Adversary campaign simulation
+- Custom detection rules for:
+  - Encoded PowerShell
+  - Password spraying
+  - Run key persistence
+  - Discovery activity
+  - Command-and-control beaconing
+  - Lateral movement
+- Alert scoring and allowlist suppression
+- MITRE ATT&CK enrichment and attack chain visualization
+- Investigation timeline and event activity analysis
+- SOC alert queue with analyst triage outcomes
+- Detection coverage heatmap and coverage score
+- AI-assisted SOC incident note generation
 
 ## Architecture
 
-```mermaid
-flowchart TD
-  A[Telemetry Generator<br/>Synthetic Endpoint Activity] --> B[data/raw/events.jsonl]
+```text
+Adversary Campaign Generator
+        ↓
+Synthetic Telemetry (events.jsonl)
+        ↓
+Detection Rules Engine
+        ↓
+Alert Scoring / Suppression
+        ↓
+ATT&CK Mapping
+        ↓
+SOC Dashboard (Streamlit)
+        ↓
+Investigation, Triage, Heatmap, Coverage Metrics
 
-  B --> C[Detection Engine<br/>detections/rules.py]
+ai-edr-threat-hunting/
+├── data/raw/events.jsonl
+├── detections/
+├── generator/
+├── outputs/
+├── streamlit_app/app.py
+├── triage_ai/
+├── docs/screenshots/
+├── requirements.txt
+└── README.md
 
-  C --> D[data/alerts.json<br/>Alert Metadata]
+MITRE ATT&CK coverage
 
-  D --> E[Streamlit SOC Console<br/>streamlit_app/app.py]
+This lab currently simulates and maps attacker activity across:
 
-  E --> F[Alerts View<br/>Alert Filtering & Investigation]
+Initial Access
 
-  E --> G[Hunt Explorer<br/>Pivot: Device / User / EventType / Scenario]
+Execution
 
-  E --> H[AI Triage Engine]
+Discovery
 
-  H --> I[Context Window Analysis]
+Credential Access
 
-  I --> J[Incident Timeline Visualization]
+Command and Control
 
-  H --> K[AI-Generated SOC Incident Notes]
+Lateral Movement
 
-  E --> L[Detection Tuning Dashboard]
+Persistence
 
-  L --> M[detections/config/tuning.json]
+Example adversary chain
 
-  L --> N[detections/config/allowlist.json]
+Phishing document opened
 
-  M --> C
-  N --> C
-```
+Encoded PowerShell execution
 
-What This Project Does
-1. Generates Synthetic EDR Telemetry
+Local discovery activity
 
-Creates realistic endpoint-style events including:
+Password spray against domain resources
 
-Process creation (parent/child relationships, command lines)
+Command-and-control beacon
 
-Network connections (domain / IP / port)
+Lateral movement
 
-Authentication events (success / failure, remote logons)
+Registry run key persistence
 
-Registry modifications (persistence patterns)
+## Screenshots
 
-File creation activity
+### Alerts Dashboard
+![Alerts Dashboard](docs/screenshots/alerts-dashboard.png)
 
-Output file:
+### Investigation Timeline
+![Investigation Timeline](docs/screenshots/investigation-timeline.png)
 
-data/raw/events.jsonl
+### ATT&CK Graph
+![ATT&CK Graph](docs/screenshots/attack-graph.png)
 
-This dataset simulates the type of telemetry typically ingested by EDR platforms.
+### MITRE Heatmap
+![MITRE Heatmap](docs/screenshots/mitre-heatmap.png)
 
-2. Detection Engineering Rules
+### Alert Queue
+![Alert Queue](docs/screenshots/alert-queue.png)
 
-The platform runs detection rules that generate alerts from the telemetry.
+Add screenshots here after capture:
 
-Current detections include:
+Alerts dashboard
 
-Detection	MITRE Technique
-Encoded PowerShell execution	T1059 – Command Execution
-Password spray behavior	T1110 – Brute Force
-Registry Run Key persistence	T1547 – Boot or Logon Autostart
+Investigation timeline
 
-Alerts are written to:
+ATT&CK graph
 
-data/alerts.json
+MITRE heatmap
 
-Each alert includes:
+Alert queue / analyst triage
 
-severity
-
-detection type
-
-confidence score
-
-contextual metadata
-
-3. Streamlit "EDR Console"
-
-A lightweight investigation interface simulating an analyst workflow.
-
-Alerts Tab
-
-Displays generated detections with filtering and inspection capabilities.
-
-Hunt Explorer
-
-Allows analysts to pivot across telemetry fields including:
-
-DeviceName
-
-User
-
-EventType
-
-Scenario
-
-This mimics threat hunting workflows in real SOC environments.
-
-AI Triage
-
-For a selected alert, the platform generates:
-
-contextual event timeline
-
-SOC-style incident note
-
-MITRE ATT&CK mapping
-
-investigation guidance
-
-Detection Engineering Capabilities
-
-This project demonstrates realistic detection tuning workflows used in modern SOC environments.
-
-Alert Confidence Scoring
-
-Alerts are assigned a confidence score based on rule logic and context.
-
-Allowlisting / Suppression
-
-Analysts can suppress alerts for:
-
-known users
-
-known devices
-
-benign processes
-
-Detection Threshold Tuning
-
-Detection thresholds can be adjusted dynamically through a configuration file:
-
-detections/config/tuning.json
-Adversary Campaign Simulation
-
-The platform can simulate a realistic attack chain:
-
-Password spray
-→ PowerShell execution
-→ Persistence via registry Run key
-
-Detections trigger across the attack chain, allowing analysts to observe how alerts correlate during an investigation.
-
-MITRE ATT&CK Coverage
-
-The system maps detections to ATT&CK techniques and visualizes detection coverage.
-
-Current coverage includes:
-
-T1059 – Command Execution
-
-T1110 – Brute Force
-
-T1547 – Persistence
-
-Technology Stack
-
-Python
-
-Streamlit
-
-Pandas
-
-Synthetic telemetry generation
-
-MITRE ATT&CK framework
-
-Quickstart
+How to run
+1. Create and activate virtual environment
 python -m venv venv
 .\venv\Scripts\activate
 
+2. Install dependencies
 pip install -r requirements.txt
 
-python .\generator\generate_logs.py
+3. Generate attack activity and detections
+python -c "from generator.campaign import generate_campaign; print(generate_campaign())"
 python .\detections\rules.py
 
-streamlit run .\streamlit_app\app.py
+4. Run the dashboard
+python -m streamlit run .\streamlit_app\app.py
+
+What this project demonstrates
+
+This project demonstrates practical skills in:
+
+Detection engineering
+
+Security telemetry analysis
+
+SOC triage workflow
+
+MITRE ATT&CK mapping
+
+Investigation timeline analysis
+
+Python-based security automation
+
+Dashboard-driven security operations
+
+AI-assisted cyber analysis
+
+Future improvements
+
+Additional ATT&CK techniques and detections
+
+More realistic beaconing and lateral movement telemetry
+
+Alert deduplication and correlation logic
+
+Detection quality trending over time
+
+Exportable reports and case management workflow
+
 Author
 
 Ryan Holmes
-B.S. Security & Risk Analysis – Penn State
-Focus: Detection Engineering, Threat Hunting, AI-assisted Security Tooling
+Security / Cyber / AI-focused portfolio project
+
+
+---
+
+# 3. Add a `requirements.txt`
+
+Open:
+
+```powershell
+notepad .\requirements.txt
+
+streamlit
+pandas
+matplotlib
+plotly

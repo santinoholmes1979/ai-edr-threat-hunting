@@ -1,10 +1,6 @@
 import sys
 from pathlib import Path
 
-sys.path.append(str(Path(__file__).resolve().parents[1]))
-
-from detections.rules import run_all as run_detections
-
 # Ensure repo root is on PYTHONPATH
 REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
@@ -13,6 +9,29 @@ if str(REPO_ROOT) not in sys.path:
 import subprocess
 from datetime import datetime
 import json
+import pandas as pd
+import streamlit as st
+from generator.campaign import generate_campaign
+from generator.generate_logs import generate as generate_dataset
+
+# MITRE ATT&CK tactic order (for heatmap display)
+TACTIC_ORDER = [
+    "Initial Access",
+    "Execution",
+    "Persistence",
+    "Privilege Escalation",
+    "Defense Evasion",
+    "Credential Access",
+    "Discovery",
+    "Lateral Movement",
+    "Collection",
+    "Command and Control",
+    "Exfiltration",
+    "Impact",
+]
+
+from detections.rules import run_all as run_detections
+
 ALLOWLIST_PATH = Path("detections/config/allowlist.json")
 
 def ensure_allowlist():
@@ -42,70 +61,18 @@ def add_to_allowlist(kind: str, value: str) -> bool:
 
     ALLOWLIST_PATH.write_text(json.dumps(data, indent=2), encoding="utf-8")
     return True
-import pandas as pd
-import streamlit as st
 
-from generator.campaign import generate_campaign
-from generator.generate_logs import generate as generate_dataset
+def generate_incident_report(alert, ctx, note):
+    from pathlib import Path
+    report_path = Path("reports/incident_report.md")
+    report_path.parent.mkdir(parents=True, exist_ok=True)
+    report_path.write_text("# Incident Report\n\nReport generation stub.\n", encoding="utf-8")
+    return report_path
+
 from detections.rules import run_all as run_detections
 from triage_ai.triage import load_events as triage_load_events, events_around, generate_soc_note
-from triage_ai.reporting import generate_incident_report
+from detections.mitre_mapper import enrich_alert_with_mitre, build_attack_chain, chain_to_dot
 
-# -----------------------------
-# MITRE ATT&CK helpers
-# -----------------------------
-TACTIC_ORDER = [
-    "Initial Access",
-    "Execution",
-    "Credential Access",
-    "Persistence",
-    "Discovery",
-    "Defense Evasion",
-    "Command and Control",
-    "Lateral Movement",
-    "Exfiltration",
-]
-
-ALERTTYPE_TO_ATTACK = {
-    "EncodedPowerShell": [("Execution", "T1059.001", "PowerShell")],
-    "PasswordSpray": [("Credential Access", "T1110", "Brute Force (Password Spraying)")],
-    "RunKeyPersistence": [("Persistence", "T1547.001", "Registry Run Keys/Startup Folder")],
-}
-
-SCENARIO_TO_ATTACK = {
-    "phishing_doc": [("Initial Access", "T1566", "Phishing")],
-    "encoded_powershell": [("Execution", "T1059.001", "PowerShell")],
-    "password_spray": [("Credential Access", "T1110", "Brute Force")],
-    "runkey_persistence": [("Persistence", "T1547.001", "Registry Run Keys/Startup Folder")],
-}
-
-def build_attack_chain(alert: dict, ctx_df):
-    chain = []
-
-    # 1) from AlertType
-    atype = alert.get("AlertType")
-    if atype in ALERTTYPE_TO_ATTACK:
-        chain += ALERTTYPE_TO_ATTACK[atype]
-
-    # 2) from scenarios found in context events
-    if ctx_df is not None and len(ctx_df) > 0 and "Scenario" in ctx_df.columns:
-        scenarios = sorted(set([s for s in ctx_df["Scenario"].dropna().tolist() if isinstance(s, str)]))
-        for s in scenarios:
-            chain += SCENARIO_TO_ATTACK.get(s, [])
-
-    # de-dupe while preserving order
-    seen = set()
-    uniq = []
-    for item in chain:
-        if item not in seen:
-            uniq.append(item)
-            seen.add(item)
-
-    # sort by tactic order (preserve within-tactic sequence)
-    order = {t: i for i, t in enumerate(TACTIC_ORDER)}
-    uniq.sort(key=lambda x: order.get(x[0], 999))
-
-    return uniq
 
 def chain_to_dot(chain):
     # DOT string for st.graphviz_chart
@@ -132,7 +99,8 @@ def chain_to_dot(chain):
     return "\n".join(lines)
 
 EVENTS_FILE = Path("data/raw/events.jsonl")
-ALERTS_FILE = Path("data/alerts.json")
+ALERTS_FILE = REPO_ROOT / "outputs" / "alerts_current.json"
+TRIAGE_FILE = REPO_ROOT / "outputs" / "triage.json"
 
 st.set_page_config(page_title="AI EDR Threat Hunting Lab", layout="wide")
 
@@ -151,8 +119,20 @@ def load_events(limit=50000):
 def load_alerts():
     if not ALERTS_FILE.exists():
         return pd.DataFrame()
+
     alerts = json.loads(ALERTS_FILE.read_text(encoding="utf-8"))
-    return pd.DataFrame(alerts)
+    enriched_alerts = [enrich_alert_with_mitre(alert) for alert in alerts]
+    return pd.DataFrame(enriched_alerts)
+
+def load_triage():
+    if not TRIAGE_FILE.exists():
+        return {}
+    return json.loads(TRIAGE_FILE.read_text())
+
+
+def save_triage(data):
+    TRIAGE_FILE.parent.mkdir(parents=True, exist_ok=True)
+    TRIAGE_FILE.write_text(json.dumps(data, indent=2))
 
 st.title("AI-Assisted EDR Threat Hunting (Synthetic Telemetry)")
 
@@ -250,24 +230,57 @@ def add_to_allowlist(kind: str, value: str) -> bool:
     ALLOWLIST_PATH.write_text(json.dumps(data, indent=2), encoding="utf-8")
     return True
 
-tab1, tab2, tab3, tab4, tab5 = st.tabs(["Alerts", "Hunt Explorer", "AI Triage", "ATT&CK Graph", "Tuning"])
+tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs(
+[
+"Alerts",
+"Hunt Explorer",
+"AI Triage",
+"ATT&CK Graph",
+"Tuning",
+"SOC Dashboard",
+"MITRE Heatmap",
+"Alert Queue"
+])
 
 with tab1:
     st.subheader("Detections / Alerts")
     st.caption("Generated locally from synthetic endpoint telemetry (EDR-style events).")
 
     alerts_df = load_alerts()
+
     if alerts_df.empty:
-        st.warning("No alerts found yet. Run:  python .\\detections\\rules.py")
+        st.warning("No alerts found yet. Run: python .\\detections\\rules.py")
     else:
-        sev = st.multiselect("Severity filter", sorted(alerts_df["Severity"].unique()), default=sorted(alerts_df["Severity"].unique()))
-        atype = st.multiselect("AlertType filter", sorted(alerts_df["AlertType"].unique()), default=sorted(alerts_df["AlertType"].unique()))
-        filt = alerts_df[alerts_df["Severity"].isin(sev) & alerts_df["AlertType"].isin(atype)]
+        sev = st.multiselect(
+            "Severity filter",
+            sorted(alerts_df["Severity"].unique()),
+            default=sorted(alerts_df["Severity"].unique())
+        )
+
+        atype = st.multiselect(
+            "AlertType filter",
+            sorted(alerts_df["AlertType"].unique()),
+            default=sorted(alerts_df["AlertType"].unique())
+        )
+
+        filt = alerts_df[
+            alerts_df["Severity"].isin(sev) &
+            alerts_df["AlertType"].isin(atype)
+        ]
+
         st.dataframe(filt, use_container_width=True)
 
         st.divider()
+
         st.subheader("Alert details")
-        idx = st.number_input("Row index (from table above)", min_value=0, max_value=max(len(filt)-1, 0), value=0)
+
+        idx = st.number_input(
+            "Row index (from table above)",
+            min_value=0,
+            max_value=max(len(filt)-1, 0),
+            value=0
+        )
+
         if len(filt) > 0:
             row = filt.iloc[int(idx)].to_dict()
             st.json(row)
@@ -306,16 +319,27 @@ with tab3:
     st.caption("Generates a SOC-style incident note and MITRE mapping for a selected alert.")
 
     alerts_df = load_alerts()
+
     if alerts_df.empty:
-        st.warning("No alerts available. Run:  python .\\detections\\rules.py")
+        st.warning("No alerts available. Run: python .\\detections\\rules.py")
     else:
         alerts_df = alerts_df.reset_index(drop=True)
-        sel = st.number_input("Select alert index", min_value=0, max_value=len(alerts_df)-1, value=0)
+        sel = st.number_input(
+            "Select alert index",
+            min_value=0,
+            max_value=len(alerts_df) - 1,
+            value=0
+        )
         alert = alerts_df.iloc[int(sel)].to_dict()
 
-        minutes = st.slider("Context window (minutes)", min_value=5, max_value=30, value=10, step=5)
+        minutes = st.slider(
+            "Context window (minutes)",
+            min_value=5,
+            max_value=30,
+            value=10,
+            step=5
+        )
 
-        # load events for triage
         df_events = triage_load_events()
         ctx = events_around(
             df_events,
@@ -325,66 +349,108 @@ with tab3:
             minutes=minutes
         )
 
-        st.write(f"Context events found: {len(ctx)}")
+        if ctx.empty:
+            st.warning("No context events found for this alert window.")
+        else:
+            timeline = ctx.copy()
 
-        st.dataframe(
-            ctx.sort_values("TimeGenerated", ascending=False).head(200),
-            use_container_width=True
-        )
+            if "TimeGenerated_dt" in timeline.columns:
+                timeline["TimeBucket"] = timeline["TimeGenerated_dt"].dt.floor("1min")
+                timeline["SortTime"] = timeline["TimeGenerated_dt"]
+            else:
+                timeline["SortTime"] = pd.to_datetime(
+                    timeline["TimeGenerated"], utc=True, errors="coerce"
+                )
+                timeline["TimeBucket"] = timeline["SortTime"].dt.floor("1min")
 
-        # -----------------------------
-        # INCIDENT TIMELINE (NEW)
-        # -----------------------------
+            timeline = timeline.sort_values("SortTime", ascending=True)
 
-st.subheader("Incident Timeline")
+            st.divider()
+            st.subheader("Investigation Timeline")
 
-timeline = ctx.copy()
+            timeline_display_cols = [
+                col for col in [
+                    "TimeGenerated",
+                    "EventType",
+                    "Scenario",
+                    "User",
+                    "DeviceName",
+                    "ProcessName",
+                    "CommandLine",
+                    "FileName",
+                    "ParentProcessName",
+                    "DestinationIP"
+                ] if col in timeline.columns
+            ]
 
-if "TimeGenerated_dt" in timeline.columns:
-    timeline["TimeBucket"] = timeline["TimeGenerated_dt"].dt.floor("1min")
-else:
-    timeline["TimeBucket"] = pd.to_datetime(
-        timeline["TimeGenerated"], utc=True, errors="coerce"
-    ).dt.floor("1min")
+            st.dataframe(
+                timeline[timeline_display_cols],
+                use_container_width=True
+            )
 
-if "EventType" in timeline.columns:
-    counts = (
-        timeline.groupby(["TimeBucket", "EventType"])
-        .size()
-        .reset_index(name="Count")
-    )
+            st.divider()
+            st.subheader("Event Activity Over Time")
 
-    pivot = (
-        counts.pivot(index="TimeBucket", columns="EventType", values="Count")
-        .fillna(0)
-    )
+            if "EventType" in timeline.columns:
+                counts = (
+                    timeline.groupby(["TimeBucket", "EventType"])
+                    .size()
+                    .reset_index(name="Count")
+                )
 
-    st.line_chart(pivot)
+                pivot = (
+                    counts.pivot(index="TimeBucket", columns="EventType", values="Count")
+                    .fillna(0)
+                )
 
-st.divider()
+                st.line_chart(pivot)
+            else:
+                st.info("EventType field not available for timeline chart.")
 
-st.subheader("Attack Chain Progression")
+            st.divider()
+            st.subheader("Attack Progression by Scenario")
 
-if "Scenario" in ctx.columns:
-    stages = (
-        ctx.groupby("Scenario")
-        .size()
-        .reset_index(name="Events")
-        .sort_values("Events", ascending=False)
-    )
+            if "Scenario" in timeline.columns and timeline["Scenario"].notna().any():
+                scenario_counts = (
+                    timeline.groupby("Scenario")
+                    .size()
+                    .reset_index(name="Events")
+                    .sort_values("Events", ascending=False)
+                )
 
-    st.dataframe(stages, use_container_width=True)
+                st.dataframe(scenario_counts, use_container_width=True)
+            else:
+                st.info("No scenario labels found in this alert context.")
 
-    st.caption("This table shows which adversary behaviors occurred during the investigation window.")
-else:
-    st.info("No campaign stages detected in this alert context.")
+            st.divider()
+            st.subheader("Chronological Event Narrative")
 
-st.divider()
+            narrative_cols = [
+                col for col in ["SortTime", "EventType", "Scenario", "User", "DeviceName", "ProcessName"]
+                if col in timeline.columns
+            ]
 
-note = generate_soc_note(alert, ctx)
+            narrative_df = timeline[narrative_cols].copy().head(25)
 
-st.subheader("SOC Incident Note")
-st.json(note)
+            for _, row in narrative_df.iterrows():
+                t = row.get("SortTime")
+                event_type = row.get("EventType", "UnknownEvent")
+                scenario = row.get("Scenario", "UnknownScenario")
+                user = row.get("User", "UnknownUser")
+                device = row.get("DeviceName", "UnknownDevice")
+                proc = row.get("ProcessName", "UnknownProcess")
+
+                ts = str(t) if pd.notna(t) else "UnknownTime"
+
+                st.markdown(
+                    f"- **{ts}** — `{event_type}` | scenario=`{scenario}` | user=`{user}` | device=`{device}` | process=`{proc}`"
+                )
+
+        note = generate_soc_note(alert, ctx)
+
+        st.divider()
+        st.subheader("SOC Incident Note")
+        st.json(note)
 
 st.divider()
 st.subheader("Tuning Actions (Detection Engineering)")
@@ -593,27 +659,178 @@ if st.button("Save tuning config + Re-run detections", key="btn_save_tuning"):
 
 st.subheader("MITRE ATT&CK Coverage")
 
-mitre_map = {
-    "EncodedPowerShell": ("T1059", "Command Execution"),
-    "PasswordSpray": ("T1110", "Brute Force"),
-    "RunKeyPersistence": ("T1547", "Boot/Logon Autostart")
-}
+alerts_df = load_alerts()
 
-alerts_df["MITRE_Technique"] = alerts_df["AlertType"].map(
-    lambda x: mitre_map.get(x, ("Unknown", "Unknown"))[0]
-)
+if alerts_df.empty:
+    st.info("No alerts available for ATT&CK coverage yet.")
+else:
+    coverage = (
+        alerts_df.groupby(["MitreTactic", "MitreTechniqueID", "MitreTechnique"])
+        .size()
+        .reset_index(name="Detections")
+        .sort_values(["MitreTactic", "Detections"], ascending=[True, False])
+    )
 
-alerts_df["MITRE_Tactic"] = alerts_df["AlertType"].map(
-    lambda x: mitre_map.get(x, ("Unknown", "Unknown"))[1]
-)
+    st.dataframe(coverage, use_container_width=True)
 
-coverage = (
-    alerts_df.groupby(["MITRE_Technique", "MITRE_Tactic"])
-    .size()
-    .reset_index(name="Detections")
-)
+with tab7:
+    st.subheader("MITRE ATT&CK Heatmap")
+    st.caption("Detection coverage across ATT&CK tactics and techniques based on current alerts.")
 
-st.dataframe(coverage, use_container_width=True)
+    alerts_df = load_alerts()
+
+    if alerts_df.empty:
+        st.warning("No alerts available yet. Generate and detect activity first.")
+    else:
+        required_cols = ["MitreTactic", "MitreTechniqueID", "MitreTechnique"]
+        for col in required_cols:
+            if col not in alerts_df.columns:
+                alerts_df[col] = "Unknown"
+
+        # Remove unknowns for cleaner display
+        mitre_df = alerts_df[
+            (alerts_df["MitreTactic"] != "Unknown") &
+            (alerts_df["MitreTechniqueID"] != "Unknown")
+        ].copy()
+
+        if mitre_df.empty:
+            st.info("No mapped MITRE ATT&CK data found in current alerts.")
+        else:
+            st.divider()
+            st.subheader("Coverage by Tactic")
+
+            tactic_counts = (
+                mitre_df.groupby("MitreTactic")
+                .size()
+                .reset_index(name="Detections")
+                .sort_values("Detections", ascending=False)
+            )
+
+            st.dataframe(tactic_counts, use_container_width=True)
+            st.bar_chart(tactic_counts.set_index("MitreTactic")["Detections"])
+
+            st.divider()
+            st.subheader("Coverage by Technique")
+
+            technique_counts = (
+                mitre_df.groupby(["MitreTechniqueID", "MitreTechnique", "MitreTactic"])
+                .size()
+                .reset_index(name="Detections")
+                .sort_values("Detections", ascending=False)
+            )
+
+            st.dataframe(technique_counts, use_container_width=True)
+
+            st.divider()
+            st.subheader("ATT&CK Heatmap Matrix")
+
+            heatmap_df = (
+                mitre_df.groupby(["MitreTactic", "MitreTechniqueID"])
+                .size()
+                .reset_index(name="Count")
+                .pivot(index="MitreTechniqueID", columns="MitreTactic", values="Count")
+                .fillna(0)
+                .astype(int)
+            )
+
+            # Ensure tactics appear in MITRE order
+            heatmap_df = heatmap_df.reindex(columns=TACTIC_ORDER, fill_value=0)
+
+            styled_heatmap = heatmap_df.style.background_gradient(
+                cmap="Reds",
+                axis=None
+            )
+
+            st.dataframe(styled_heatmap, use_container_width=True)
+
+            st.divider()
+            st.subheader("Analyst Notes")
+
+            st.markdown(
+                "- Higher counts may indicate stronger detection visibility for that ATT&CK area.\n"
+                "- Empty tactics suggest coverage gaps or missing ATT&CK mappings.\n"
+                "- As you add detections, this heatmap becomes a fast way to show threat coverage maturity."
+            )
+
+with tab8:
+
+    st.subheader("SOC Alert Queue")
+
+    alerts_df = load_alerts()
+
+    if alerts_df.empty:
+        st.info("No alerts available")
+    else:
+
+        triage = load_triage()
+
+        # -----------------------------
+        # DETECTION QUALITY METRICS
+        # -----------------------------
+
+        st.subheader("Detection Quality Metrics")
+
+        if triage:
+
+            outcomes = list(triage.values())
+
+            tp = outcomes.count("True Positive")
+            fp = outcomes.count("False Positive")
+            benign = outcomes.count("Benign")
+            review = outcomes.count("Needs Review")
+
+            precision = 0
+            if tp + fp > 0:
+                precision = tp / (tp + fp)
+
+            c1, c2, c3, c4 = st.columns(4)
+
+            c1.metric("True Positives", tp)
+            c2.metric("False Positives", fp)
+            c3.metric("Benign Alerts", benign)
+            c4.metric("Needs Review", review)
+
+            st.metric("Detection Precision", f"{precision:.2%}")
+
+        st.divider()
+
+        alerts_df = alerts_df.reset_index(drop=True)
+        alerts_df["AlertID"] = alerts_df.index.astype(str)
+
+        alerts_df["Outcome"] = alerts_df["AlertID"].map(
+            lambda x: triage.get(x, "Needs Review")
+        )
+        st.dataframe(alerts_df, use_container_width=True)
+
+        st.divider()
+
+        idx = st.number_input(
+            "Select alert",
+            min_value=0,
+            max_value=len(alerts_df)-1,
+            value=0
+        )
+
+        selected = alerts_df.iloc[int(idx)]
+
+        st.json(selected.to_dict())
+
+        outcome = st.selectbox(
+            "Set outcome",
+            [
+                "Needs Review",
+                "True Positive",
+                "False Positive",
+                "Benign"
+            ]
+        )
+
+        if st.button("Save Decision"):
+
+            triage[str(int(idx))] = outcome
+            save_triage(triage)
+
+            st.success("Triage saved")
 
 col1, col2 = st.columns([1, 2])
 

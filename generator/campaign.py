@@ -1,77 +1,100 @@
 import json
-import random
-from datetime import datetime, timedelta
 from pathlib import Path
+from datetime import datetime, timedelta, UTC
+import random
 
 EVENTS_FILE = Path("data/raw/events.jsonl")
 
-devices = ["ENG-WKS01", "ENG-WKS02", "FIN-WKS01"]
-users = ["svc-deploy", "j.smith", "m.jones"]
 
-def now():
-    return datetime.utcnow()
+def _ts(offset_minutes: int) -> str:
+    return (datetime.now(UTC) + timedelta(minutes=offset_minutes)).isoformat()
 
-def write_event(event):
+
+def _append_events(events):
     EVENTS_FILE.parent.mkdir(parents=True, exist_ok=True)
     with EVENTS_FILE.open("a", encoding="utf-8") as f:
-        f.write(json.dumps(event) + "\n")
+        for event in events:
+            f.write(json.dumps(event) + "\n")
+
 
 def generate_campaign():
-    device = random.choice(devices)
-    user = random.choice(users)
+    user = random.choice(["jsmith", "adoe", "bthomas"])
+    device = random.choice(["WKSTN-102", "WKSTN-205", "ENG-LT-07"])
+    dc = "DC-01"
 
-    base = now()
-
-    campaign = [
-
+    events = [
         {
-            "TimeGenerated": (base).isoformat(),
+            "TimeGenerated": _ts(0),
             "DeviceName": device,
             "User": user,
-            "EventType": "ProcessCreate",
-            "ProcessName": "winword.exe",
-            "CommandLine": "winword.exe invoice.docm",
-            "Scenario": "phishing_doc"
+            "EventType": "FileOpen",
+            "Scenario": "phishing_doc",
+            "FileName": "invoice_q1.docm",
+            "ProcessName": "WINWORD.EXE",
+            "ParentProcessName": "explorer.exe"
         },
-
         {
-            "TimeGenerated": (base + timedelta(seconds=30)).isoformat(),
+            "TimeGenerated": _ts(1),
             "DeviceName": device,
             "User": user,
             "EventType": "ProcessCreate",
+            "Scenario": "encoded_powershell",
             "ProcessName": "powershell.exe",
-            "CommandLine": "powershell -enc SQBFAFgA",
-            "Scenario": "encoded_powershell"
+            "ParentProcessName": "WINWORD.EXE",
+            "CommandLine": "powershell.exe -enc SQBFAFgAIAByAGUAZAB0AGUAYQBtAA=="
         },
-
         {
-            "TimeGenerated": (base + timedelta(seconds=60)).isoformat(),
+            "TimeGenerated": _ts(2),
             "DeviceName": device,
             "User": user,
-            "EventType": "Logon",
-            "LogonType": "Network",
-            "Result": "Failure",
-            "Scenario": "password_spray"
+            "EventType": "ProcessCreate",
+            "Scenario": "discovery",
+            "ProcessName": "cmd.exe",
+            "ParentProcessName": "powershell.exe",
+            "CommandLine": "cmd.exe /c whoami && ipconfig && net user"
         },
-
         {
-            "TimeGenerated": (base + timedelta(seconds=90)).isoformat(),
+            "TimeGenerated": _ts(3),
+            "DeviceName": dc,
+            "User": user,
+            "EventType": "AuthenticationFailure",
+            "Scenario": "password_spray",
+            "FailureCount": random.randint(8, 15),
+            "SourceDevice": device,
+            "DestinationIP": "10.0.0.10"
+        },
+        {
+            "TimeGenerated": _ts(4),
             "DeviceName": device,
             "User": user,
-            "EventType": "RegistrySet",
-            "RegistryKey": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
-            "Value": "evil.exe",
-            "Scenario": "runkey_persistence"
+            "EventType": "NetworkConnection",
+            "Scenario": "c2_beacon",
+            "ProcessName": "powershell.exe",
+            "DestinationIP": "198.51.100.25",
+            "DestinationPort": 443,
+            "Protocol": "TCP"
+        },
+        {
+            "TimeGenerated": _ts(5),
+            "DeviceName": "FS-01",
+            "User": user,
+            "EventType": "LogonSuccess",
+            "Scenario": "lateral_movement",
+            "SourceDevice": device,
+            "DestinationIP": "10.0.0.20",
+            "Protocol": "SMB"
+        },
+        {
+            "TimeGenerated": _ts(6),
+            "DeviceName": device,
+            "User": user,
+            "EventType": "RegistryModification",
+            "Scenario": "runkey_persistence",
+            "ProcessName": "reg.exe",
+            "ParentProcessName": "powershell.exe",
+            "RegistryPath": r"HKCU\Software\Microsoft\Windows\CurrentVersion\Run\Updater"
         }
-
     ]
 
-    for e in campaign:
-        write_event(e)
-
-    return len(campaign)
-
-
-if __name__ == "__main__":
-    n = generate_campaign()
-    print(f"Generated adversary campaign with {n} events")
+    _append_events(events)
+    return len(events)
